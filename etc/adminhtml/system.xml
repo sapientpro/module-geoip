@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Config/etc/system_file.xsd">
+    <system>
+        <section id="geo_ip" translate="label" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
+            <label>GeoIP</label>
+            <tab>sapient_pro_extension_tab</tab>
+            <resource>SapientPro_GeoIP::config_order</resource>
+            <group id="status" translate="label" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>Status</label>
+                <attribute type="expanded">1</attribute>
+                <field id="is_active" translate="label" type="select" sortOrder="2" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Is Active</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                </field>
+                <field id="provider" translate="label" type="select" sortOrder="2" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Provider</label>
+                    <source_model>SapientPro\GeoIP\Model\Config\Source\GeoIpProviders</source_model>
+                </field>
+            </group>
+            <group id="routes" translate="label" type="text" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>Redirect Routes</label>
+                <field id="routes" translate="label" sortOrder="5" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Routes</label>
+                    <frontend_model>SapientPro\GeoIP\Block\Adminhtml\Form\Field\Ranges</frontend_model>
+                    <backend_model>Magento\Config\Model\Config\Backend\Serialized\ArraySerialized</backend_model>
+                </field>
+            </group>
+        </section>
+    </system>
+</config>
