@@ -17,5 +17,5 @@ interface GeoIpServiceInterface
      * @param string $ipAddress
      * @return string|null
      */
-    public function getCountry(string $ipAddress): ?string;
+    public function getCountryCode(string $ipAddress): ?string;
 }

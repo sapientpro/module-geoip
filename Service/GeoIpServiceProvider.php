@@ -2,14 +2,16 @@
 
 namespace SapientPro\GeoIP\Service;
 
+use SapientPro\GeoIP\Api\Provider\GeoIpServiceProviderInterface;
 use SapientPro\GeoIP\Api\GeoIpServiceInterface;
+use Magento\Framework\App\Config\ScopeConfigInterface;
 
 class GeoIpServiceProvider implements GeoIpServiceInterface
 {
     /**
-     * @var GeoIpServiceInterface
+     * @var GeoIpServiceProviderInterface
      */
-    private GeoIpServiceInterface $provider;
+    private GeoIpServiceProviderInterface $provider;
 
     /**
      * @var array
@@ -17,25 +19,37 @@ class GeoIpServiceProvider implements GeoIpServiceInterface
     private array $providers;
 
     /**
-     * @param $scopeConfig
+     * @param ScopeConfigInterface $scopeConfig
      * @param array $providers
      */
     public function __construct(
-        $scopeConfig,
+        ScopeConfigInterface $scopeConfig,
         array $providers
     ) {
         $this->providers = $providers;
+        $providerCode = $scopeConfig->getValue('geo_ip/general/provider');
+        foreach ($providers as $provider) {
+            if ($provider->getName() === $providerCode) {
+                $this->provider = $provider;
+                break;
+            }
+        }
     }
 
+    /**
+     * @inheritDoc
+     */
     public function getAvailableProviders(): array
     {
         return $this->providers;
     }
 
-    public function getCountry(string $ipAddress): ?string
+    /**
+     * @inheritDoc
+     */
+    public function getCountryCode(string $ipAddress): ?string
     {
-        // TODO: Implement getCountry() method.
-        return '';
+        return $this->provider->getCountryCode($ipAddress);
     }
 
 }

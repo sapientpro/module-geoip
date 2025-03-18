@@ -29,12 +29,17 @@ class GeoIpProviders implements OptionSourceInterface
      */
     public function toOptionArray(): array
     {
-        $options = [];
+        $options = [
+            [
+                'value' => '',
+                'label' => __('-- Please Select --')
+            ]
+        ];
 
         foreach ($this->geoIpService->getAvailableProviders() as $provider) {
             $options[] = [
-                'value' => $provider,
-                'label' => $provider
+                'value' => $provider->getName(),
+                'label' => $provider->getName()
             ];
         }
 

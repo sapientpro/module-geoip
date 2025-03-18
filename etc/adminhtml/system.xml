@@ -5,7 +5,7 @@
             <label>GeoIP</label>
             <tab>sapient_pro_extension_tab</tab>
             <resource>SapientPro_GeoIP::config_order</resource>
-            <group id="status" translate="label" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
+            <group id="general" translate="label" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
                 <label>Status</label>
                 <attribute type="expanded">1</attribute>
                 <field id="is_active" translate="label" type="select" sortOrder="2" showInDefault="1" showInWebsite="1" showInStore="1">
@@ -15,6 +15,14 @@
                 <field id="provider" translate="label" type="select" sortOrder="2" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Provider</label>
                     <source_model>SapientPro\GeoIP\Model\Config\Source\GeoIpProviders</source_model>
+                </field>
+                <field id="ipgeolocation_apikey" translate="label" type="obscure" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Ipgeolocation API Key</label>
+                    <comment><![CDATA[For more information, visit <a href="https://ipgeolocation.io/" target="_blank">ipgeolocation.io</a>]]></comment>
+                    <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
+                    <depends>
+                        <field id="provider">ipGeoLocation</field>
+                    </depends>
                 </field>
             </group>
             <group id="routes" translate="label" type="text" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
