@@ -1,0 +1,6 @@
+"Is Active", "Активний", module, SapientPro_GeoIP
+"Provider", "Постачальник", module, SapientPro_GeoIP
+"Ipgeolocation API Key", "Ключ API Ipgeolocation", module, SapientPro_GeoIP
+"Redirect Routes", "Маршрути перенаправлення", module, SapientPro_GeoIP
+"Routes", "Маршрути", module, SapientPro_GeoIP
+"General", "Загальні", module, SapientPro_GeoIP

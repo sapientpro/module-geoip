@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SapientPro\GeoIP\Observer;
 
 use Magento\Framework\Event\Observer;
@@ -14,6 +16,7 @@ use Magento\Framework\HTTP\PhpEnvironment\RemoteAddress;
 use Magento\Customer\Model\Session as CustomerSession;
 use Magento\Framework\UrlInterface;
 use SapientPro\GeoIP\Api\Validator\GeoIpRedirectValidatorInterface;
+use SapientPro\GeoIP\Model\StoreSwitcher;
 
 class FrontendRequestObserver implements ObserverInterface
 {
@@ -68,6 +71,11 @@ class FrontendRequestObserver implements ObserverInterface
     private GeoIpRedirectValidatorInterface $geoIpRedirectValidator;
 
     /**
+     * @var StoreSwitcher
+     */
+    private StoreSwitcher $storeSwitcher;
+
+    /**
      * @param StoreManagerInterface $storeManager
      * @param ScopeConfigInterface $scopeConfig
      * @param GeoIpServiceProvider $geoIpServiceProvider
@@ -78,6 +86,7 @@ class FrontendRequestObserver implements ObserverInterface
      * @param CustomerSession $customerSession
      * @param UrlInterface $url
      * @param GeoIpRedirectValidatorInterface $geoIpRedirectValidator
+     * @param StoreSwitcher $storeSwitcher
      */
     public function __construct(
         StoreManagerInterface $storeManager,
@@ -89,7 +98,8 @@ class FrontendRequestObserver implements ObserverInterface
         RemoteAddress $remoteAddress,
         CustomerSession $customerSession,
         UrlInterface $url,
-        GeoIpRedirectValidatorInterface $geoIpRedirectValidator
+        GeoIpRedirectValidatorInterface $geoIpRedirectValidator,
+        StoreSwitcher $storeSwitcher
     ) {
         $this->storeManager = $storeManager;
         $this->scopeConfig = $scopeConfig;
@@ -101,6 +111,7 @@ class FrontendRequestObserver implements ObserverInterface
         $this->customerSession = $customerSession;
         $this->url = $url;
         $this->geoIpRedirectValidator = $geoIpRedirectValidator;
+        $this->storeSwitcher = $storeSwitcher;
     }
 
     /**
@@ -122,7 +133,6 @@ class FrontendRequestObserver implements ObserverInterface
         $currentUrl = $this->url->getCurrentUrl();
         $baseUrl = $store->getBaseUrl();
 
-        // Check if the user is on the base URL
         if (rtrim($currentUrl, '/') !== rtrim($baseUrl, '/')) {
             return; // Don't redirect if the user is not on the base URL
         }
@@ -135,18 +145,22 @@ class FrontendRequestObserver implements ObserverInterface
 
         foreach ($routes as $route) {
             if ($route['from_country'] === $countryCode) {
-                if ($route['redirect_to'] !== $store->getId()) {
-                    $lastChangedTime = $this->config->getLastConfigChange();
-                    $storeTo = $this->storeManager->getStore($route['redirect_to']);
-                    $storeUrl = $storeTo->getBaseUrl();
+                if ($route['redirect_to'] != $store->getId()) {
+                    try {
+                        $storeTo = $this->storeManager->getStore($route['redirect_to']);
+                        $lastChangedTime = $this->config->getLastConfigChange();
 
-                    // Set the session flag and update the last config change time in the session
-                    $this->customerSession->setGeoRedirected(true);
-                    $this->customerSession->setLastConfigChange($lastChangedTime);
+                        $switchUrl = $this->storeSwitcher->getSwitchStoreUrl($storeTo);
 
-                    // Redirect to the new store's base URL
-                    $this->response->setRedirect($storeUrl)->sendResponse();
-                    exit;
+                        // Prevent looping redirects
+                        $this->customerSession->setGeoRedirected(true);
+                        $this->customerSession->setLastConfigChange($lastChangedTime);
+
+                        $this->response->setRedirect($switchUrl)->sendResponse();
+                        exit;
+                    } catch (\Magento\Framework\Exception\NoSuchEntityException $e) {
+                        return;
+                    }
                 }
                 break;
             }
