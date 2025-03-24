@@ -51,5 +51,4 @@ class GeoIpServiceProvider implements GeoIpServiceInterface
     {
         return $this->provider->getCountryCode($ipAddress);
     }
-
 }

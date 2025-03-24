@@ -1,8 +1,9 @@
 <?xml version="1.0"?>
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
-    <preference for="SapientPro\GeoIP\Api\GeoIpServiceInterface"
-                type="SapientPro\GeoIP\Service\GeoIpServiceProvider"/>
+    <preference for="SapientPro\GeoIP\Api\GeoIpServiceInterface" type="SapientPro\GeoIP\Service\GeoIpServiceProvider"/>
+    <preference for="SapientPro\GeoIP\Api\Validator\GeoIpRedirectValidatorInterface" type="SapientPro\GeoIP\Service\Validator\GeoIpRedirectValidator"/>
+
     <type name="SapientPro\GeoIP\Api\GeoIpServiceInterface">
         <arguments>
             <argument name="scopeConfig" xsi:type="object">Magento\Framework\App\Config\ScopeConfigInterface</argument>

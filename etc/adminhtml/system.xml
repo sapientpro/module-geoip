@@ -20,9 +20,13 @@
                     <label>Ipgeolocation API Key</label>
                     <comment><![CDATA[For more information, visit <a href="https://ipgeolocation.io/" target="_blank">ipgeolocation.io</a>]]></comment>
                     <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
+                    <validate>required-entry</validate>
                     <depends>
                         <field id="provider">ipGeoLocation</field>
                     </depends>
+                </field>
+                <field id="last_config_change" translate="label" type="hidden" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Last Config Change</label>
                 </field>
             </group>
             <group id="routes" translate="label" type="text" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
