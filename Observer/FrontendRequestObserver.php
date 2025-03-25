@@ -98,7 +98,7 @@ class FrontendRequestObserver implements ObserverInterface
         GeoIpRedirectValidatorInterface $geoIpRedirectValidator,
         StoreSwitcher $storeSwitcher,
         CookieManagerInterface $cookieManager,
-        CookieMetadataFactory $cookieMetadataFactory,
+        CookieMetadataFactory $cookieMetadataFactory
     ) {
         $this->storeManager = $storeManager;
         $this->scopeConfig = $scopeConfig;
