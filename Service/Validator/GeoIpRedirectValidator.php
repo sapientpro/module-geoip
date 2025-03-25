@@ -5,15 +5,21 @@ declare(strict_types=1);
 namespace SapientPro\GeoIP\Service\Validator;
 
 use SapientPro\GeoIP\Api\Validator\GeoIpRedirectValidatorInterface;
-use Magento\Customer\Model\Session as CustomerSession;
+use Magento\Framework\Stdlib\CookieManagerInterface;
+use Magento\Framework\Stdlib\Cookie\CookieMetadataFactory;
 use SapientPro\GeoIP\Model\Config;
 
 class GeoIpRedirectValidator implements GeoIpRedirectValidatorInterface
 {
     /**
-     * @var CustomerSession
+     * @var CookieManagerInterface
      */
-    private CustomerSession $customerSession;
+    private CookieManagerInterface $cookieManager;
+
+    /**
+     * @var CookieMetadataFactory
+     */
+    private CookieMetadataFactory $cookieMetadataFactory;
 
     /**
      * @var Config
@@ -21,14 +27,17 @@ class GeoIpRedirectValidator implements GeoIpRedirectValidatorInterface
     private Config $config;
 
     /**
-     * @param CustomerSession $customerSession
+     * @param CookieManagerInterface $cookieManager
+     * @param CookieMetadataFactory $cookieMetadataFactory
      * @param Config $config
      */
     public function __construct(
-        CustomerSession $customerSession,
+        CookieManagerInterface $cookieManager,
+        CookieMetadataFactory $cookieMetadataFactory,
         Config $config
     ) {
-        $this->customerSession = $customerSession;
+        $this->cookieManager = $cookieManager;
+        $this->cookieMetadataFactory = $cookieMetadataFactory;
         $this->config = $config;
     }
 
@@ -38,9 +47,9 @@ class GeoIpRedirectValidator implements GeoIpRedirectValidatorInterface
     public function validate(): bool
     {
         $lastChangedTime = $this->config->getLastConfigChange();
-        $sessionLastChangedTime = $this->customerSession->getLastConfigChange();
+        $cookieLastChangedTime = $this->cookieManager->getCookie(self::COOKIE_NAME);
 
-        if ($this->customerSession->getGeoRedirected() && $sessionLastChangedTime === $lastChangedTime) {
+        if ($cookieLastChangedTime && $cookieLastChangedTime === $lastChangedTime) {
             return false;
         }
 

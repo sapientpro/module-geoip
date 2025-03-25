@@ -7,16 +7,17 @@ namespace SapientPro\GeoIP\Observer;
 use Magento\Framework\Event\Observer;
 use Magento\Framework\Event\ObserverInterface;
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\Exception\NoSuchEntityException;
 use SapientPro\GeoIP\Service\GeoIpServiceProvider;
 use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Store\Model\StoreManagerInterface;
 use Magento\Framework\App\ResponseInterface;
 use SapientPro\GeoIP\Model\Config;
 use Magento\Framework\HTTP\PhpEnvironment\RemoteAddress;
-use Magento\Customer\Model\Session as CustomerSession;
-use Magento\Framework\UrlInterface;
 use SapientPro\GeoIP\Api\Validator\GeoIpRedirectValidatorInterface;
 use SapientPro\GeoIP\Model\StoreSwitcher;
+use Magento\Framework\Stdlib\CookieManagerInterface;
+use Magento\Framework\Stdlib\Cookie\CookieMetadataFactory;
 
 class FrontendRequestObserver implements ObserverInterface
 {
@@ -56,16 +57,6 @@ class FrontendRequestObserver implements ObserverInterface
     private RemoteAddress $remoteAddress;
 
     /**
-     * @var CustomerSession
-     */
-    private CustomerSession $customerSession;
-
-    /**
-     * @var UrlInterface
-     */
-    private UrlInterface $url;
-
-    /**
      * @var GeoIpRedirectValidatorInterface
      */
     private GeoIpRedirectValidatorInterface $geoIpRedirectValidator;
@@ -74,6 +65,14 @@ class FrontendRequestObserver implements ObserverInterface
      * @var StoreSwitcher
      */
     private StoreSwitcher $storeSwitcher;
+    /**
+     * @var CookieManagerInterface
+     */
+    private CookieManagerInterface $cookieManager;
+    /**
+     * @var CookieMetadataFactory
+     */
+    private CookieMetadataFactory $cookieMetadataFactory;
 
     /**
      * @param StoreManagerInterface $storeManager
@@ -83,10 +82,10 @@ class FrontendRequestObserver implements ObserverInterface
      * @param ResponseInterface $response
      * @param Config $config
      * @param RemoteAddress $remoteAddress
-     * @param CustomerSession $customerSession
-     * @param UrlInterface $url
      * @param GeoIpRedirectValidatorInterface $geoIpRedirectValidator
      * @param StoreSwitcher $storeSwitcher
+     * @param CookieManagerInterface $cookieManager
+     * @param CookieMetadataFactory $cookieMetadataFactory
      */
     public function __construct(
         StoreManagerInterface $storeManager,
@@ -96,10 +95,10 @@ class FrontendRequestObserver implements ObserverInterface
         ResponseInterface $response,
         Config $config,
         RemoteAddress $remoteAddress,
-        CustomerSession $customerSession,
-        UrlInterface $url,
         GeoIpRedirectValidatorInterface $geoIpRedirectValidator,
-        StoreSwitcher $storeSwitcher
+        StoreSwitcher $storeSwitcher,
+        CookieManagerInterface $cookieManager,
+        CookieMetadataFactory $cookieMetadataFactory,
     ) {
         $this->storeManager = $storeManager;
         $this->scopeConfig = $scopeConfig;
@@ -108,16 +107,16 @@ class FrontendRequestObserver implements ObserverInterface
         $this->response = $response;
         $this->config = $config;
         $this->remoteAddress = $remoteAddress;
-        $this->customerSession = $customerSession;
-        $this->url = $url;
         $this->geoIpRedirectValidator = $geoIpRedirectValidator;
         $this->storeSwitcher = $storeSwitcher;
+        $this->cookieManager = $cookieManager;
+        $this->cookieMetadataFactory = $cookieMetadataFactory;
     }
 
     /**
      * @param Observer $observer
      * @return void
-     * @throws \Magento\Framework\Exception\NoSuchEntityException
+     * @throws NoSuchEntityException
      */
     public function execute(Observer $observer): void
     {
@@ -130,12 +129,6 @@ class FrontendRequestObserver implements ObserverInterface
         }
 
         $store = $this->storeManager->getStore();
-        $currentUrl = $this->url->getCurrentUrl();
-        $baseUrl = $store->getBaseUrl();
-
-        if (rtrim($currentUrl, '/') !== rtrim($baseUrl, '/')) {
-            return; // Don't redirect if the user is not on the base URL
-        }
 
         // Get visitor IP
         $visitorIP = $this->remoteAddress->getRemoteAddress();
@@ -143,27 +136,52 @@ class FrontendRequestObserver implements ObserverInterface
         $routes = $this->json->unserialize($routes);
         $countryCode = $this->geoIpServiceProvider->getCountryCode($visitorIP);
 
+        $redirectRoute = null;
         foreach ($routes as $route) {
             if ($route['from_country'] === $countryCode) {
-                if ($route['redirect_to'] != $store->getId()) {
-                    try {
-                        $storeTo = $this->storeManager->getStore($route['redirect_to']);
-                        $lastChangedTime = $this->config->getLastConfigChange();
-
-                        $switchUrl = $this->storeSwitcher->getSwitchStoreUrl($storeTo);
-
-                        // Prevent looping redirects
-                        $this->customerSession->setGeoRedirected(true);
-                        $this->customerSession->setLastConfigChange($lastChangedTime);
-
-                        $this->response->setRedirect($switchUrl)->sendResponse();
-                        exit;
-                    } catch (\Magento\Framework\Exception\NoSuchEntityException $e) {
-                        return;
-                    }
-                }
+                $redirectRoute = $route;
                 break;
             }
+            if ($route['from_country'] === 'any') {
+                $redirectRoute = $route;
+            }
         }
+
+        if ($redirectRoute && $redirectRoute['redirect_to'] != $store->getId()) {
+            try {
+                $storeTo = $this->storeManager->getStore($redirectRoute['redirect_to']);
+                $lastChangedTime = $this->config->getLastConfigChange();
+
+                $switchUrl = $this->storeSwitcher->getSwitchStoreUrl($storeTo);
+
+                $this->setLastChangedTimeCookie($lastChangedTime);
+
+                $this->response->setRedirect($switchUrl)->sendResponse();
+                exit;
+            } catch (NoSuchEntityException $e) {
+                return;
+            }
+        }
+    }
+
+    /**
+     * Set the last config change time in a cookie
+     *
+     * @param string $lastChangedTime
+     * @return void
+     */
+    private function setLastChangedTimeCookie(string $lastChangedTime): void
+    {
+        $metadata = $this->cookieMetadataFactory
+            ->createPublicCookieMetadata()
+            ->setDuration(GeoIpRedirectValidatorInterface::COOKIE_LIFETIME)
+            ->setPath('/')
+            ->setHttpOnly(false);
+
+        $this->cookieManager->setPublicCookie(
+            GeoIpRedirectValidatorInterface::COOKIE_NAME,
+            $lastChangedTime,
+            $metadata
+        );
     }
 }
