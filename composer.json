@@ -1,7 +1,7 @@
 {
     "name": "sapientpro/module-geoip",
     "description": "GeoIP Detector",
-    "version": "1.0.3",
+    "version": "v1.0.4",
     "type": "magento2-module",
     "license": "MIT",
     "authors": [

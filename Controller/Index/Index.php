@@ -1,26 +1,30 @@
 <?php
 
-declare(strict_types=1);
+namespace SapientPro\GeoIP\Controller\Index;
 
-namespace SapientPro\GeoIP\Observer;
-
-use Magento\Framework\Event\Observer;
-use Magento\Framework\Event\ObserverInterface;
+use Magento\Framework\App\Action\Action;
+use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\Config\ScopeConfigInterface;
-use Magento\Framework\Exception\NoSuchEntityException;
-use SapientPro\GeoIP\Service\GeoIpServiceProvider;
-use Magento\Framework\Serialize\Serializer\Json;
-use Magento\Store\Model\StoreManagerInterface;
 use Magento\Framework\App\ResponseInterface;
-use SapientPro\GeoIP\Model\Config;
+use Magento\Framework\Controller\Result\JsonFactory;
+use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\HTTP\PhpEnvironment\RemoteAddress;
-use SapientPro\GeoIP\Api\Validator\GeoIpRedirectValidatorInterface;
-use SapientPro\GeoIP\Model\StoreSwitcher;
-use Magento\Framework\Stdlib\CookieManagerInterface;
+use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Framework\Stdlib\Cookie\CookieMetadataFactory;
+use Magento\Framework\Stdlib\CookieManagerInterface;
+use Magento\Store\Model\StoreManagerInterface;
+use SapientPro\GeoIP\Api\Validator\GeoIpRedirectValidatorInterface;
+use SapientPro\GeoIP\Model\Config;
+use SapientPro\GeoIP\Model\StoreSwitcher;
+use SapientPro\GeoIP\Service\GeoIpServiceProvider;
 
-class FrontendRequestObserver implements ObserverInterface
+class Index extends Action
 {
+    /**
+     * @var JsonFactory
+     */
+    private JsonFactory $jsonFactory;
+
     /**
      * @var GeoIpServiceProvider
      */
@@ -65,29 +69,20 @@ class FrontendRequestObserver implements ObserverInterface
      * @var StoreSwitcher
      */
     private StoreSwitcher $storeSwitcher;
+
     /**
      * @var CookieManagerInterface
      */
     private CookieManagerInterface $cookieManager;
+
     /**
      * @var CookieMetadataFactory
      */
     private CookieMetadataFactory $cookieMetadataFactory;
 
-    /**
-     * @param StoreManagerInterface $storeManager
-     * @param ScopeConfigInterface $scopeConfig
-     * @param GeoIpServiceProvider $geoIpServiceProvider
-     * @param Json $json
-     * @param ResponseInterface $response
-     * @param Config $config
-     * @param RemoteAddress $remoteAddress
-     * @param GeoIpRedirectValidatorInterface $geoIpRedirectValidator
-     * @param StoreSwitcher $storeSwitcher
-     * @param CookieManagerInterface $cookieManager
-     * @param CookieMetadataFactory $cookieMetadataFactory
-     */
     public function __construct(
+        Context $context,
+        JsonFactory $jsonFactory,
         StoreManagerInterface $storeManager,
         ScopeConfigInterface $scopeConfig,
         GeoIpServiceProvider $geoIpServiceProvider,
@@ -100,6 +95,8 @@ class FrontendRequestObserver implements ObserverInterface
         CookieManagerInterface $cookieManager,
         CookieMetadataFactory $cookieMetadataFactory
     ) {
+        parent::__construct($context);
+        $this->jsonFactory = $jsonFactory;
         $this->storeManager = $storeManager;
         $this->scopeConfig = $scopeConfig;
         $this->geoIpServiceProvider = $geoIpServiceProvider;
@@ -113,19 +110,26 @@ class FrontendRequestObserver implements ObserverInterface
         $this->cookieMetadataFactory = $cookieMetadataFactory;
     }
 
-    /**
-     * @param Observer $observer
-     * @return void
-     * @throws NoSuchEntityException
-     */
-    public function execute(Observer $observer): void
+    public function execute()
     {
         if (!$this->config->isEnabled()) {
-            return;
+            $result = $this->jsonFactory->create();
+            $data = [
+                'success' => false,
+                'message' => 'Geoip redirect is disabled.',
+            ];
+
+            return $result->setData($data);
         }
 
         if (!$this->geoIpRedirectValidator->validate()) {
-            return;
+            $result = $this->jsonFactory->create();
+            $data = [
+                'success' => false,
+                'message' => 'Geoip redirect is not valid.',
+            ];
+
+            return $result->setData($data);
         }
 
         $store = $this->storeManager->getStore();
@@ -156,12 +160,29 @@ class FrontendRequestObserver implements ObserverInterface
 
                 $this->setLastChangedTimeCookie($lastChangedTime);
 
-                $this->response->setRedirect($switchUrl)->sendResponse();
-                exit;
+                $result = $this->jsonFactory->create();
+                $data = [
+                    'success' => true,
+                    'message' => 'Redirecting to ' . $storeTo->getName(),
+                    'data' => [
+                        'redirect_url' => $switchUrl,
+                    ],
+                ];
+
+                return $result->setData($data);
             } catch (NoSuchEntityException $e) {
-                return;
             }
         }
+
+        $data = [
+            'success' => true,
+            'message' => 'Redirect not needed.',
+            'data' => [
+                'redirect_url' => $switchUrl,
+            ],
+        ];
+
+        return $result->setData($data);
     }
 
     /**
